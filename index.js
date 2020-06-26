@@ -2,7 +2,8 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const yaml = require('js-yaml');
 
-const { promises: fs } = require('fs');
+const fs = require('fs');
+const path = require('path');
 
 function parseGovernanceMembers(rawJson) {
   const teams = new Set(
@@ -32,17 +33,23 @@ function parseGovernanceMembers(rawJson) {
 
 async function run() {
   try {
-    const { GITHUB_TOKEN } = process.env;
+    const { GITHUB_TOKEN, GITHUB_WORKSPACE } = process.env;
     const octokit = github.getOctokit(GITHUB_TOKEN);
 
-    const config = await fs.readFile('config.yaml', 'utf8');
+    const pathToFile = path.join(GITHUB_WORKSPACE, 'config.yaml');
+    if (!fs.existsSync(pathToFile)) {
+      core.setFailed('config.yaml not found');
+      return;
+    }
+
+    const config = await fs.promises.readFile(pathToFile, 'utf8');
     const raw = yaml.safeLoad(config);
 
     const govMembers = parseGovernanceMembers(raw);
     for (const username of govMembers) {
-      const { data: ghUser } = await octokit.users.getByUsername({ username });
+      const { data: ghUser, status } = await octokit.users.getByUsername({ username });
 
-      if (ghUser.status === 404) {
+      if (status === 404) {
         core.setFailed(`No user with login ${username} exists on GitHub`);
         return;
       }
@@ -54,6 +61,7 @@ async function run() {
         return;
       }
     }
+    core.info(`Audited ${govMembers.length} members successfully`);
   } catch (error) {
     console.error(error);
   }
