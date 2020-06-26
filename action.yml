@@ -1,0 +1,5 @@
+name: 'Check Governance Status'
+description: 'Check governance membership status and casing'
+runs:
+  using: 'node14'
+  main: 'index.js'

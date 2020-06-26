@@ -1,0 +1,28 @@
+{
+  "name": "governance-check",
+  "version": "1.0.0",
+  "description": "Check governance membership status and casing",
+  "main": "index.js",
+  "scripts": {
+    "lint": "prettier --check index.js",
+    "format": "prettier --write index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codebytere/governance-check.git"
+  },
+  "author": "Shelley Vohr <shelley.vohr@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/codebytere/governance-check/issues"
+  },
+  "homepage": "https://github.com/codebytere/governance-check#readme",
+  "devDependencies": {
+    "prettier": "^2.0.5"
+  },
+  "dependencies": {
+    "@actions/core": "^1.2.4",
+    "@actions/github": "^3.0.0",
+    "js-yaml": "^3.14.0"
+  }
+}
