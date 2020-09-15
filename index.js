@@ -17,6 +17,10 @@ function parseGovernanceMembers(rawJson) {
     ),
   );
 
+  return teams;
+}
+
+function parseGovernanceCollaborators(rawJson) {
   const externalCollaborators = new Set(
     [].concat.apply(
       [],
@@ -28,13 +32,14 @@ function parseGovernanceMembers(rawJson) {
     ),
   );
 
-  return Array.from(teams).concat(Array.from(externalCollaborators));
+  return externalCollaborators;
 }
 
 async function run() {
   try {
-    const { GITHUB_TOKEN, GITHUB_WORKSPACE } = process.env;
+    const { GITHUB_TOKEN, GITHUB_WORKSPACE, ORG_TOKEN } = process.env;
     const octokit = github.getOctokit(GITHUB_TOKEN);
+    const orgOctokit = github.getOctokit(ORG_TOKEN);
 
     const pathToFile = path.join(GITHUB_WORKSPACE, 'config.yaml');
     if (!fs.existsSync(pathToFile)) {
@@ -46,7 +51,14 @@ async function run() {
     const raw = yaml.safeLoad(config);
 
     const govMembers = parseGovernanceMembers(raw);
-    for (const username of govMembers) {
+    const govCollaborators = parseGovernanceCollaborators(raw);
+    const allGovMembers = Array.from(govMembers).concat(Array.from(govCollaborators));
+
+    const ghOrgMembers = await orgOctokit.paginate(orgOctokit.orgs.listMembers.endpoint.merge({
+      org: raw.organization,
+    }));
+
+    for (const username of allGovMembers) {
       const { data: ghUser, status } = await octokit.users.getByUsername({ username });
 
       if (status === 404) {
@@ -60,7 +72,15 @@ async function run() {
         );
         return;
       }
+
+      if (govMembers.has(username) && !ghOrgMembers.some(ghOrgMember => ghOrgMember.login === username)) {
+        core.setFailed(
+          `Governance member ${username} is not currently in the "${raw.organization}" GitHub org`,
+        );
+        return;
+      }
     }
+
     core.info(`Audited ${govMembers.length} members successfully`);
   } catch (error) {
     console.error(error);
