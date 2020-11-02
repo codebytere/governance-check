@@ -50,6 +50,18 @@ async function run() {
     const config = await fs.promises.readFile(pathToFile, 'utf8');
     const raw = yaml.safeLoad(config);
 
+    // Check that each GitHub team has a maintainer.
+    for (const team of raw.teams) {
+      if (team.maintainers === undefined || team.maintainers.length === 0) {
+        core.setFailed(
+          `GitHub team ${team.name} does not have valid maintainer(s)`,
+        );
+        return;
+      }
+    }
+
+    core.info(`Audited ${raw.teams.length} GitHub teams successfully`);
+
     const govMembers = parseGovernanceMembers(raw);
     const govCollaborators = parseGovernanceCollaborators(raw);
     const allGovMembers = Array.from(govMembers).concat(Array.from(govCollaborators));
@@ -58,6 +70,7 @@ async function run() {
       org: raw.organization,
     }));
 
+    // Check that governance members are valid.
     for (const username of allGovMembers) {
       const { data: ghUser, status } = await octokit.users.getByUsername({ username });
 
