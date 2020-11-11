@@ -35,6 +35,14 @@ function parseGovernanceCollaborators(rawJson) {
   return externalCollaborators;
 }
 
+const hasMaintainers = (team) => {
+  return (
+    team.maintainers !== undefined &&
+    Array.isArray(team.maintainers) &&
+    team.maintainers.length !== 0
+  );
+};
+
 async function run() {
   try {
     const { GITHUB_TOKEN, GITHUB_WORKSPACE, ORG_TOKEN } = process.env;
@@ -52,7 +60,7 @@ async function run() {
 
     // Check that each GitHub team has a maintainer.
     for (const team of raw.teams) {
-      if (team.maintainers === undefined || !Array.isArray(team.maintainers) || team.maintainers.length === 0) {
+      if (team.name !== 'gov' && !hasMaintainers(team)) {
         core.setFailed(
           `GitHub team ${team.name} does not have valid maintainer(s)`,
         );
@@ -64,15 +72,21 @@ async function run() {
 
     const govMembers = parseGovernanceMembers(raw);
     const govCollaborators = parseGovernanceCollaborators(raw);
-    const allGovMembers = Array.from(govMembers).concat(Array.from(govCollaborators));
+    const allGovMembers = Array.from(govMembers).concat(
+      Array.from(govCollaborators),
+    );
 
-    const ghOrgMembers = await orgOctokit.paginate(orgOctokit.orgs.listMembers.endpoint.merge({
-      org: raw.organization,
-    }));
+    const ghOrgMembers = await orgOctokit.paginate(
+      orgOctokit.orgs.listMembers.endpoint.merge({
+        org: raw.organization,
+      }),
+    );
 
     // Check that governance members are valid.
     for (const username of allGovMembers) {
-      const { data: ghUser, status } = await octokit.users.getByUsername({ username });
+      const { data: ghUser, status } = await octokit.users.getByUsername({
+        username,
+      });
 
       if (status === 404) {
         core.setFailed(`No user with login ${username} exists on GitHub`);
@@ -86,7 +100,10 @@ async function run() {
         return;
       }
 
-      if (govMembers.has(username) && !ghOrgMembers.some(ghOrgMember => ghOrgMember.login === username)) {
+      if (
+        govMembers.has(username) &&
+        !ghOrgMembers.some((ghOrgMember) => ghOrgMember.login === username)
+      ) {
         core.setFailed(
           `Governance member ${username} is not currently in the "${raw.organization}" GitHub org`,
         );
