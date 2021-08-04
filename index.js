@@ -58,6 +58,16 @@ async function run() {
     const config = await fs.promises.readFile(pathToFile, 'utf8');
     const raw = yaml.safeLoad(config);
 
+    const getTeamMembers = (team) => {
+      if (team.formation) {
+        return team.formation.reduce((allMembers, formationTeam) => {
+          const team = raw.teams.find(team => team.name === formationTeam);
+          return allMembers.concat(getTeamMembers(team));
+        }, []);
+      }
+      return [...(team.members || []), ...(team.maintainers || [])];
+    }
+
     // Check that each GitHub team has a maintainer.
     for (const team of raw.teams) {
       if (team.name !== 'gov' && !hasMaintainers(team)) {
@@ -65,6 +75,32 @@ async function run() {
           `GitHub team ${team.name} does not have valid maintainer(s)`,
         );
         return;
+      }
+
+      // Anyone in a child team, must also be in the parent team explicitly
+      // to avoid unintended permission grants.
+      let currentTeam = team;
+      while (currentTeam.parent) {
+        const parentTeam = raw.teams.find(team => team.name === currentTeam.parent);
+        if (!parentTeam) {
+          core.setFailed(
+            `GitHub team ${currentTeam.name} references a non-existent parent team ${currentTeam.parent}`,
+          );
+          return;
+        }
+
+        const currentTeamMembers = getTeamMembers(currentTeam);
+        const parentTeamMembers = getTeamMembers(parentTeam);
+        for (const member of currentTeamMembers) {
+          if (!parentTeamMembers.includes(member)) {
+            core.setFailed(
+              `GitHub team ${currentTeam.name} has a member ${member} not in the parent team ${parentTeam.name}`,
+            );
+            return;
+          }
+        }
+
+        currentTeam = parentTeam;
       }
     }
 
@@ -111,7 +147,7 @@ async function run() {
       }
     }
 
-    core.info(`Audited ${govMembers.length} members successfully`);
+    core.info(`Audited ${govMembers.size} members successfully`);
   } catch (error) {
     console.error(error);
   }
