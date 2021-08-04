@@ -111,7 +111,7 @@ async function run() {
       }
     }
 
-    core.info(`Audited ${govMembers.length} members successfully`);
+    core.info(`Audited ${govMembers.size} members successfully`);
   } catch (error) {
     console.error(error);
   }
