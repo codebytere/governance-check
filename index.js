@@ -70,7 +70,7 @@ async function run() {
 
     // Check that each GitHub team has a maintainer.
     for (const team of raw.teams) {
-      if (team.name !== 'gov' && !hasMaintainers(team)) {
+      if (!team.formation && !hasMaintainers(team)) {
         core.setFailed(
           `GitHub team ${team.name} does not have valid maintainer(s)`,
         );
