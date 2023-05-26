@@ -91,6 +91,7 @@ async function run() {
               ', ',
             )}`,
           );
+          return;
         }
       }
 
