@@ -1,5 +1,5 @@
 name: 'Check Governance Status'
 description: 'Check governance membership status and casing'
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'index.js'
