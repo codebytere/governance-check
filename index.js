@@ -61,15 +61,15 @@ async function run() {
     const getTeamMembers = (team) => {
       if (team.formation) {
         return team.formation.reduce((allMembers, formationTeam) => {
-          const team = raw.teams.find(team => team.name === formationTeam);
+          const team = raw.teams.find((team) => team.name === formationTeam);
           return allMembers.concat(getTeamMembers(team));
         }, []);
       }
       return [...(team.members || []), ...(team.maintainers || [])];
-    }
+    };
 
-    // Check that each GitHub team has a maintainer.
     for (const team of raw.teams) {
+      // Check that each GitHub team has a maintainer.
       if (!team.formation && !hasMaintainers(team)) {
         core.setFailed(
           `GitHub team ${team.name} does not have valid maintainer(s)`,
@@ -77,11 +77,31 @@ async function run() {
         return;
       }
 
+      // Check that maintainers are not duplicated in the members field
+      if (hasMaintainers(team)) {
+        const maintainerAndMember = team.maintainers.filter((maintainer) => {
+          return team.members.includes(maintainer);
+        });
+
+        if (maintainerAndMember.length > 0) {
+          core.setFailed(
+            `GitHub team ${
+              team.name
+            } has one or more maintainers who are also duplicated as members: ${maintainerAndMember.join(
+              ', ',
+            )}`,
+          );
+          return;
+        }
+      }
+
       // Anyone in a child team, must also be in the parent team explicitly
       // to avoid unintended permission grants.
       let currentTeam = team;
       while (currentTeam.parent) {
-        const parentTeam = raw.teams.find(team => team.name === currentTeam.parent);
+        const parentTeam = raw.teams.find(
+          (team) => team.name === currentTeam.parent,
+        );
         if (!parentTeam) {
           core.setFailed(
             `GitHub team ${currentTeam.name} references a non-existent parent team ${currentTeam.parent}`,
